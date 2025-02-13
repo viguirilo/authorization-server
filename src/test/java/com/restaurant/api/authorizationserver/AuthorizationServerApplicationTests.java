@@ -1,4 +1,4 @@
-package com.restaurant.api.authorization_server;
+package com.restaurant.api.authorizationserver;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
