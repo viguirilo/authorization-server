@@ -1,7 +1,7 @@
 # Read Me First
 The following was discovered as part of building this project:
 
-* The original package name 'com.restaurant.api.authorization-server' is invalid and this project uses 'com.restaurant.api.authorization_server' instead.
+* The original package name 'com.restaurant.api.authorization-server' is invalid and this project uses 'com.restaurant.api.authorizationserver' instead.
 
 # Getting Started
 

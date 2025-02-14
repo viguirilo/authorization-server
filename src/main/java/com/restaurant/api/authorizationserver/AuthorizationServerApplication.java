@@ -1,4 +1,4 @@
-package com.restaurant.api.authorization_server;
+package com.restaurant.api.authorizationserver;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
