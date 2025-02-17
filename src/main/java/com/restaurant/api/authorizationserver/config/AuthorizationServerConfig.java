@@ -32,7 +32,7 @@ public class AuthorizationServerConfig {
 
     @Bean
     @Order(Ordered.HIGHEST_PRECEDENCE)
-    public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain authorizationServerFilterChain(HttpSecurity http) throws Exception {
         var authorizationServerConfigure = OAuth2AuthorizationServerConfigurer.authorizationServer();
         http.securityMatcher(authorizationServerConfigure.getEndpointsMatcher())
                 .with(authorizationServerConfigure, Customizer.withDefaults())
@@ -50,7 +50,7 @@ public class AuthorizationServerConfig {
     @Bean
     public RegisteredClientRepository registeredClientRepository(PasswordEncoder passwordEncoder) {
         RegisteredClient registeredClient = RegisteredClient.withId("1")
-                .clientId("client-backend")
+                .clientId("app-restaurant")
                 .clientSecret(passwordEncoder.encode("backend123"))
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
                 .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
