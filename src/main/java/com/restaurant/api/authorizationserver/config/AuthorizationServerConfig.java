@@ -14,6 +14,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
@@ -25,6 +26,7 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
+import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
 import org.springframework.security.oauth2.server.authorization.settings.OAuth2TokenFormat;
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.security.web.SecurityFilterChain;
@@ -36,7 +38,7 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.time.Duration;
-import java.util.Collections;
+import java.util.Arrays;
 
 @Configuration
 public class AuthorizationServerConfig {
@@ -50,7 +52,9 @@ public class AuthorizationServerConfig {
     @Order(Ordered.HIGHEST_PRECEDENCE)
     public SecurityFilterChain authorizationServerFilterChain(HttpSecurity http) throws Exception {
         var authorizationServerConfigure = OAuth2AuthorizationServerConfigurer.authorizationServer();
-        http.securityMatcher(authorizationServerConfigure.getEndpointsMatcher())
+        http.formLogin(Customizer.withDefaults())
+                .csrf(AbstractHttpConfigurer::disable)
+                .securityMatcher(authorizationServerConfigure.getEndpointsMatcher())
                 .with(authorizationServerConfigure, Customizer.withDefaults())
                 .authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated());
         return http.build();
@@ -65,7 +69,7 @@ public class AuthorizationServerConfig {
 
     @Bean
     public RegisteredClientRepository registeredClientRepository(PasswordEncoder passwordEncoder) {
-        RegisteredClient registeredClient = RegisteredClient.withId("1")
+        RegisteredClient appRestaurant = RegisteredClient.withId("1")
                 .clientId("app-restaurant")
                 .clientSecret(passwordEncoder.encode("backend123"))
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
@@ -76,7 +80,26 @@ public class AuthorizationServerConfig {
                         .accessTokenTimeToLive(Duration.ofMinutes(30))
                         .build())
                 .build();
-        return new InMemoryRegisteredClientRepository(Collections.singletonList(registeredClient));
+
+        RegisteredClient appRestaurantWeb = RegisteredClient.withId("2")
+                .clientId("app-restaurant-web")
+                .clientSecret(passwordEncoder.encode("web123"))
+                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+                .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+                .scope("READ")
+                .scope("WRITE")
+                .tokenSettings(TokenSettings.builder()
+                        .accessTokenFormat(OAuth2TokenFormat.SELF_CONTAINED)
+                        .accessTokenTimeToLive(Duration.ofMinutes(15))
+                        .build())
+                .redirectUri("http://127.0.0.1:9090/authorized")
+                .redirectUri("http://127.0.0.1:9090/swagger-ui/oauth2-redirect.html")
+                .clientSettings(ClientSettings.builder()
+                        .requireAuthorizationConsent(true)
+                        .build())
+                .build();
+
+        return new InMemoryRegisteredClientRepository(Arrays.asList(appRestaurant, appRestaurantWeb));
     }
 
     @Bean
