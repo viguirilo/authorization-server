@@ -11,10 +11,10 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.io.Resource;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
@@ -30,6 +30,8 @@ import org.springframework.security.oauth2.server.authorization.settings.ClientS
 import org.springframework.security.oauth2.server.authorization.settings.OAuth2TokenFormat;
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -50,13 +52,28 @@ public class AuthorizationServerConfig {
 
     @Bean
     @Order(Ordered.HIGHEST_PRECEDENCE)
-    public SecurityFilterChain authorizationServerFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) throws Exception {
         var authorizationServerConfigure = OAuth2AuthorizationServerConfigurer.authorizationServer();
-        http.formLogin(Customizer.withDefaults())
-                .csrf(AbstractHttpConfigurer::disable)
-                .securityMatcher(authorizationServerConfigure.getEndpointsMatcher())
-                .with(authorizationServerConfigure, Customizer.withDefaults())
-                .authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated());
+        http.securityMatcher(authorizationServerConfigure.getEndpointsMatcher())
+                .with(authorizationServerConfigure, authorizationServer ->
+                        authorizationServer.oidc(Customizer.withDefaults())    // Enable OpenID Connect 1.0
+                ).authorizeHttpRequests(authorize ->
+                        authorize.anyRequest().authenticated()
+                ).exceptionHandling(exceptions ->
+                        exceptions.defaultAuthenticationEntryPointFor(
+                                new LoginUrlAuthenticationEntryPoint("/login"),
+                                new MediaTypeRequestMatcher(MediaType.TEXT_HTML)
+                        )
+                );
+        return http.build();
+    }
+
+    @Bean
+    @Order(2)
+    public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http) throws Exception {
+        http.authorizeHttpRequests(authorize ->
+                authorize.anyRequest().authenticated()
+        ).formLogin(Customizer.withDefaults());
         return http.build();
     }
 
@@ -82,18 +99,22 @@ public class AuthorizationServerConfig {
                 .build();
 
         RegisteredClient appRestaurantWeb = RegisteredClient.withId("2")
-                .clientId("app-restaurant-web")
-                .clientSecret(passwordEncoder.encode("web123"))
+                .clientId("app-restaurant-mobile")
+                .clientSecret(passwordEncoder.encode("mobile123"))
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+                .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
                 .scope("READ")
                 .scope("WRITE")
                 .tokenSettings(TokenSettings.builder()
                         .accessTokenFormat(OAuth2TokenFormat.SELF_CONTAINED)
                         .accessTokenTimeToLive(Duration.ofMinutes(15))
+                        .reuseRefreshTokens(false)
+                        .refreshTokenTimeToLive(Duration.ofDays(1))
                         .build())
-                .redirectUri("http://127.0.0.1:9090/authorized")
+                .redirectUri("http://127.0.0.1:9090/login/oauth2/code/oidc-client")
                 .redirectUri("http://127.0.0.1:9090/swagger-ui/oauth2-redirect.html")
+                .postLogoutRedirectUri("http://127.0.0.1:8080/")
                 .clientSettings(ClientSettings.builder()
                         .requireAuthorizationConsent(true)
                         .build())
