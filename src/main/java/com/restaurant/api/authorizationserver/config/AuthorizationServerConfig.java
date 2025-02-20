@@ -8,13 +8,16 @@ import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
@@ -29,6 +32,7 @@ import org.springframework.security.oauth2.server.authorization.settings.Authori
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
 import org.springframework.security.oauth2.server.authorization.settings.OAuth2TokenFormat;
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
+import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
@@ -43,6 +47,7 @@ import java.time.Duration;
 import java.util.Arrays;
 
 @Configuration
+@EnableWebSecurity
 public class AuthorizationServerConfig {
 
     @Bean
@@ -51,7 +56,12 @@ public class AuthorizationServerConfig {
     }
 
     @Bean
-    @Order(Ordered.HIGHEST_PRECEDENCE)
+    public OAuth2AuthorizationService oAuth2AuthorizationService(JdbcOperations jdbcOperations, RegisteredClientRepository registeredClientRepository) {
+        return new JdbcOAuth2AuthorizationService(jdbcOperations, registeredClientRepository);
+    }
+
+    @Bean
+    @Order(1)
     public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) throws Exception {
         var authorizationServerConfigure = OAuth2AuthorizationServerConfigurer.authorizationServer();
         http.securityMatcher(authorizationServerConfigure.getEndpointsMatcher())
@@ -78,10 +88,15 @@ public class AuthorizationServerConfig {
     }
 
     @Bean
-    public AuthorizationServerSettings authorizationServerSettings(AuthorizationServerSecurityProperties properties) {
-        return AuthorizationServerSettings.builder()
-                .issuer(properties.getProviderUrl())
+    public UserDetailsService users() {
+        BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+        UserDetails userDetails = User.builder()
+                .username("admin")
+                .password("password")
+                .passwordEncoder(encoder::encode)
+                .roles("USER")
                 .build();
+        return new InMemoryUserDetailsManager(userDetails);
     }
 
     @Bean
@@ -112,20 +127,13 @@ public class AuthorizationServerConfig {
                         .reuseRefreshTokens(false)
                         .refreshTokenTimeToLive(Duration.ofDays(1))
                         .build())
-                .redirectUri("http://127.0.0.1:9090/login/oauth2/code/oidc-client")
-                .redirectUri("http://127.0.0.1:9090/swagger-ui/oauth2-redirect.html")
-                .postLogoutRedirectUri("http://127.0.0.1:8080/")
+                .redirectUri("http://127.0.0.1:8000/authorized")
+                .postLogoutRedirectUri("http://127.0.0.1:8000/")
                 .clientSettings(ClientSettings.builder()
                         .requireAuthorizationConsent(true)
                         .build())
                 .build();
-
         return new InMemoryRegisteredClientRepository(Arrays.asList(appRestaurant, appRestaurantWeb));
-    }
-
-    @Bean
-    public OAuth2AuthorizationService oAuth2AuthorizationService(JdbcOperations jdbcOperations, RegisteredClientRepository registeredClientRepository) {
-        return new JdbcOAuth2AuthorizationService(jdbcOperations, registeredClientRepository);
     }
 
     @Bean
@@ -138,6 +146,13 @@ public class AuthorizationServerConfig {
         keyStore.load(inputStream, keyStorePass);
         RSAKey rsaKey = RSAKey.load(keyStore, keypairAlias, keyStorePass);
         return new ImmutableJWKSet<>(new JWKSet(rsaKey));
+    }
+
+    @Bean
+    public AuthorizationServerSettings authorizationServerSettings(AuthorizationServerSecurityProperties properties) {
+        return AuthorizationServerSettings.builder()
+                .issuer(properties.getProviderUrl())
+                .build();
     }
 
 }
