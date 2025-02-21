@@ -6,6 +6,8 @@ import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
+import com.restaurant.api.authorizationserver.repository.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -15,9 +17,9 @@ import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
@@ -32,7 +34,8 @@ import org.springframework.security.oauth2.server.authorization.settings.Authori
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
 import org.springframework.security.oauth2.server.authorization.settings.OAuth2TokenFormat;
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
+import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
@@ -45,6 +48,8 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 @Configuration
 @EnableWebSecurity
@@ -85,18 +90,6 @@ public class AuthorizationServerConfig {
                 authorize.anyRequest().authenticated()
         ).formLogin(Customizer.withDefaults());
         return http.build();
-    }
-
-    @Bean
-    public UserDetailsService users() {
-        BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
-        UserDetails userDetails = User.builder()
-                .username("admin")
-                .password("password")
-                .passwordEncoder(encoder::encode)
-                .roles("USER")
-                .build();
-        return new InMemoryUserDetailsManager(userDetails);
     }
 
     @Bean
@@ -153,6 +146,26 @@ public class AuthorizationServerConfig {
         return AuthorizationServerSettings.builder()
                 .issuer(properties.getProviderUrl())
                 .build();
+    }
+
+    @Bean
+    public OAuth2TokenCustomizer<JwtEncodingContext> jwtEncodingContextOAuth2TokenCustomizer(UserRepository userRepository) {
+        return context -> {
+            Authentication authentication = context.getPrincipal();
+            if (authentication.getPrincipal() instanceof User principal) {
+                com.restaurant.api.authorizationserver.entity.User user = userRepository.findByEmail(principal.getUsername())
+                        .orElseThrow(EntityNotFoundException::new);
+                Set<String> authorities = new HashSet<>();
+                for (GrantedAuthority grantedAuthority : principal.getAuthorities()) {
+                    authorities.add(grantedAuthority.getAuthority());
+                }
+                context.getClaims().claim("user_id", user.getId().toString());
+                context.getClaims().claim("name", user.getName());
+                context.getClaims().claim("email", user.getEmail());
+                context.getClaims().claim("authorities", authorities);
+                context.getClaims().claim("creation_date", user.getCreationDate().toString());
+            }
+        };
     }
 
 }
