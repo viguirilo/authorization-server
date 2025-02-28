@@ -160,8 +160,12 @@ public class AuthorizationServerConfig {
                     authorities.add(grantedAuthority.getAuthority());
                 }
                 context.getClaims().claim("user_id", user.getId().toString());
-                context.getClaims().claim("name", user.getName());
+                context.getClaims().claim("fullname", user.getFullname());
+                context.getClaims().claim("username", user.getUsername());
                 context.getClaims().claim("email", user.getEmail());
+                context.getClaims().claim("language_code", user.getLanguageCode());
+                context.getClaims().claim("currency_code", user.getCurrencyCode());
+                context.getClaims().claim("timezone", user.getTimezone());
                 context.getClaims().claim("authorities", authorities);
                 context.getClaims().claim("creation_date", user.getCreationDate().toString());
             }

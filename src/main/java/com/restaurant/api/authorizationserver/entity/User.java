@@ -13,6 +13,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Entity
 @Table(name = "user")
@@ -27,9 +28,13 @@ public class User implements Serializable {
     @JsonProperty(value = "id")
     private Long id;
 
-    @Column(name = "name", length = 80, nullable = false)
-    @JsonProperty(value = "name")
-    private String name;
+    @Column(name = "fullname", length = 80, nullable = false)
+    @JsonProperty(value = "fullname")
+    private String fullname;
+
+    @Column(name = "username", length = 80, nullable = false)
+    @JsonProperty(value = "username")
+    private String username;
 
     @Column(name = "email", length = 50, nullable = false)
     @JsonProperty(value = "email")
@@ -39,6 +44,18 @@ public class User implements Serializable {
     @Column(name = "password", length = 100, nullable = false)
     @JsonProperty(value = "password")
     private String password;
+
+    @Column(name = "language_code", length = 5, nullable = false)
+    @JsonProperty(value = "languageCode")
+    private String languageCode;
+
+    @Column(name = "currency_code", length = 3, nullable = false)
+    @JsonProperty(value = "currencyCode")
+    private String currencyCode;
+
+    @Column(name = "timezone", length = 6, nullable = false)
+    @JsonProperty(value = "timezone")
+    private String timezone;
 
     @CreationTimestamp
     @Column(name = "creation_date", nullable = false, columnDefinition = "datetime")
@@ -52,4 +69,30 @@ public class User implements Serializable {
     )
     private List<Group> groups = new ArrayList<>();
 
+    @Override
+    public String toString() {
+        return "User{" +
+                "id=" + id +
+                ", fullname='" + fullname + '\'' +
+                ", username='" + username + '\'' +
+                ", email='" + email + '\'' +
+                ", languageCode='" + languageCode + '\'' +
+                ", currencyCode='" + currencyCode + '\'' +
+                ", timezone='" + timezone + '\'' +
+                ", creationDate=" + creationDate +
+                '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        User user = (User) o;
+        return Objects.equals(username, user.username) || Objects.equals(email, user.email);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(fullname, username);
+    }
 }
