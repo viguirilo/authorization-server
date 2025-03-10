@@ -128,7 +128,7 @@
                             </execution>
                         </executions>
                         <configuration>
-                            <repository>viguirilo/authorization-server</repository>
+                            <repository>authorization-server</repository>
                             <buildArgs>
                                 <JAR_FILE>${project.build.finalName}.jar</JAR_FILE>
                             </buildArgs>
